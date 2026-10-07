@@ -1,0 +1,36 @@
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs / temp
+*.log
+*.tmp
+*.temp
+*.bak
+*~
+
+# Runtime inventory output
+certificates.json
+certificates-inventory.json
+*.inventory.json
+
+# Secrets / private material
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+
+# Local config
+config.local.php
+*.local.conf
+
+# Dependencies / build artifacts
+/vendor/
+/node_modules/
+coverage/
+.cache/

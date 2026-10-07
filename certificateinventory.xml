@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <name>Certificate Inventory</name>
+  <key>certificateinventory</key>
+  <state>alpha</state>
+  <logo>https://raw.githubusercontent.com/jopehi/certificateinventory/main/certificateinventory.png</logo>
+
+  <description>
+    <short>
+      <en>Automatically inventories SSL/TLS certificates from Linux servers through GLPI Agent and registers them as native GLPI Certificate objects.</en>
+    </short>
+    <long>
+      <en>
+        Certificate Inventory is a community plugin for GLPI that discovers SSL/TLS certificates referenced by Apache and Nginx, extracts public X.509 metadata with OpenSSL, transports that information through GLPI Agent, and creates or updates native GLPI Certificate objects associated with the originating computers.
+      </en>
+    </long>
+  </description>
+
+  <homepage>https://tics-solutions.xyz/glpi-plugins/certificateinventory/</homepage>
+  <issues>https://github.com/jopehi/certificateinventory/issues</issues>
+
+  <authors>
+    <author>
+      <name>Hernando Jose Peña Hidalgo</name>
+    </author>
+  </authors>
+
+  <versions>
+    <version>
+      <num>0.1.0</num>
+      <compatibility>&gt;=10.0.0 &lt;10.1.0</compatibility>
+      <download_url>https://github.com/jopehi/certificateinventory/releases/download/v0.1.0/certificateinventory-0.1.0.tar.gz</download_url>
+    </version>
+  </versions>
+</root>
