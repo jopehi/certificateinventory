@@ -1,2 +1,642 @@
-# certificateinventory
-Community plugin for GLPI that automatically discovers SSL/TLS certificates on Linux servers through GLPI Agent and registers them as native Certificate objects associated with computers.
+# Certificate Inventory for GLPI
+
+[![GLPI](https://img.shields.io/badge/GLPI-10.0.x-2F7DBA)](https://glpi-project.org/)
+[![GLPI Agent](https://img.shields.io/badge/GLPI%20Agent-required-34D1BF)](https://github.com/glpi-project/glpi-agent)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-E95420)](https://ubuntu.com/)
+[![License](https://img.shields.io/github/license/jopehi/certificateinventory)](https://github.com/jopehi/certificateinventory/blob/main/LICENSE)
+
+**Certificate Inventory** is an open-source community plugin for **GLPI 10.0.x** that automates the discovery, registration, and association of SSL/TLS certificates found on Linux servers.
+
+The project uses **GLPI Agent** as the transport channel. A lightweight discovery script identifies certificates actively referenced by Apache or Nginx, extracts X.509 metadata with OpenSSL, and sends a structured inventory marker through the normal GLPI Agent inventory process. The server-side plugin then creates or updates native GLPI `Certificate` objects and associates them with the originating `Computer`.
+
+## Project links
+
+- **Project website:** https://tics-solutions.xyz/glpi-plugins/certificateinventory/
+- **Source code:** https://github.com/jopehi/certificateinventory
+- **Issues:** https://github.com/jopehi/certificateinventory/issues
+- **Releases:** https://github.com/jopehi/certificateinventory/releases
+
+> **Project status:** early-stage community project / proof of concept. Validate it in a non-production GLPI environment before production deployment.
+
+---
+
+## Why Certificate Inventory?
+
+GLPI can manage certificates as native objects, but GLPI Agent does not currently expose a native certificate inventory category comparable to `database`, `software`, or `network`.
+
+Certificate Inventory bridges that gap while keeping the collection workflow integrated with GLPI Agent and without requiring GLPI REST API credentials on every managed Linux server.
+
+The intended workflow is:
+
+```text
+Apache / Nginx
+      |
+      v
+Certificate discovery script
+      |
+      v
+OpenSSL X.509 metadata
+      |
+      v
+GLPI Agent additional inventory
+      |
+      v
+Certificate Inventory plugin
+      |
+      +--> Native GLPI Certificate
+      |
+      +--> Certificate <-> Computer association
+```
+
+---
+
+## Main features
+
+- Automatic discovery of certificates referenced by Apache and Nginx.
+- X.509 metadata extraction using OpenSSL.
+- Integration with the normal GLPI Agent inventory workflow.
+- Native GLPI `Certificate` object creation and update.
+- Automatic association between certificates and GLPI computers.
+- SHA-256 fingerprint-based correlation.
+- Duplicate control.
+- Certificate expiration date inventory.
+- CN and SAN collection.
+- Issuer and serial number collection.
+- Local certificate path inventory.
+- No GLPI REST API credentials required on client servers.
+- No private key content is read or transmitted.
+- Manual reprocessing support.
+- Scheduled reconciliation support.
+
+---
+
+## Collected certificate data
+
+The current implementation can collect and process the following information:
+
+| Field | Description |
+|---|---|
+| Common Name (CN) | Certificate subject common name |
+| Subject Alternative Name (SAN) | DNS names included in the certificate |
+| Issuer | Certificate authority / issuer information |
+| Serial number | X.509 certificate serial number |
+| SHA-256 fingerprint | Used for technical correlation and duplicate control |
+| Expiration date | Certificate validity end date |
+| Certificate path | Local path referenced by Apache or Nginx |
+| Source computer | GLPI computer that reported the certificate |
+| Inventory source | Marks the certificate as automatically discovered |
+
+Private keys are **never inventoried**.
+
+---
+
+## Initial compatibility
+
+### GLPI
+
+- GLPI 10.0.x
+- Initially developed and tested against GLPI 10.0.11
+
+### GLPI Agent
+
+A GLPI Agent version supporting:
+
+```text
+additional-content
+```
+
+is required.
+
+### Operating systems
+
+Initial target platforms:
+
+- Ubuntu Server 22.04 LTS
+- Ubuntu Server 24.04 LTS
+
+### Web servers
+
+- Apache HTTP Server
+- Nginx
+
+### Client-side dependencies
+
+- Bash
+- OpenSSL
+- Python 3
+- GLPI Agent
+
+---
+
+## Architecture
+
+Certificate Inventory is composed of two parts:
+
+### 1. Client-side discovery
+
+The client-side script:
+
+```text
+client/glpi-cert-inventory.sh
+```
+
+reads Apache and Nginx configuration files, identifies certificate files actively referenced by web services, and extracts public X.509 metadata using OpenSSL.
+
+It then generates:
+
+```text
+/var/lib/glpi-agent/certificates-inventory.json
+```
+
+The generated inventory is transported by GLPI Agent through the standard inventory process.
+
+### 2. Server-side plugin
+
+The GLPI plugin detects inventory markers generated by the client script and converts them into native GLPI `Certificate` objects.
+
+The plugin also creates the relationship between:
+
+```text
+Certificate <-> Computer
+```
+
+This keeps certificate information visible in the GLPI asset model rather than only as generic software inventory.
+
+---
+
+## Repository structure
+
+```text
+certificateinventory/
+├── README.md
+├── LICENSE
+├── setup.php
+├── hook.php
+├── certificateinventory.xml
+├── inc/
+│   └── sync.class.php
+├── front/
+│   └── config.php
+└── client/
+    └── glpi-cert-inventory.sh
+```
+
+The technical plugin key is:
+
+```text
+certificateinventory
+```
+
+The plugin directory must therefore also be named:
+
+```text
+certificateinventory
+```
+
+---
+
+## Installation
+
+### 1. Clone the repository
+
+On the GLPI server:
+
+```bash
+cd /var/www/glpi/plugins
+sudo git clone https://github.com/jopehi/certificateinventory.git
+```
+
+Confirm the plugin structure:
+
+```bash
+ls -la /var/www/glpi/plugins/certificateinventory
+```
+
+The following file must exist:
+
+```text
+/var/www/glpi/plugins/certificateinventory/setup.php
+```
+
+### 2. Adjust ownership
+
+Depending on your GLPI deployment:
+
+```bash
+sudo chown -R www-data:www-data /var/www/glpi/plugins/certificateinventory
+```
+
+Your web-server account or GLPI path may be different.
+
+### 3. Install and enable the plugin
+
+Open GLPI and go to:
+
+```text
+Setup -> Plugins
+```
+
+Locate:
+
+```text
+Certificate Inventory
+```
+
+Then:
+
+1. Install the plugin.
+2. Enable the plugin.
+
+---
+
+## Client deployment
+
+Copy the discovery script to each Ubuntu server that should report certificates.
+
+Example:
+
+```bash
+sudo cp client/glpi-cert-inventory.sh \
+  /usr/local/sbin/glpi-cert-inventory.sh
+```
+
+Set permissions:
+
+```bash
+sudo chmod 750 /usr/local/sbin/glpi-cert-inventory.sh
+```
+
+Run the script:
+
+```bash
+sudo /usr/local/sbin/glpi-cert-inventory.sh
+```
+
+The expected output file is:
+
+```text
+/var/lib/glpi-agent/certificates-inventory.json
+```
+
+Verify it:
+
+```bash
+sudo cat /var/lib/glpi-agent/certificates-inventory.json
+```
+
+---
+
+## Configure GLPI Agent
+
+Edit:
+
+```text
+/etc/glpi-agent/agent.cfg
+```
+
+Set:
+
+```ini
+additional-content = /var/lib/glpi-agent/certificates-inventory.json
+```
+
+Then force an inventory:
+
+```bash
+sudo glpi-agent --force --debug
+```
+
+The certificate marker is sent as part of the normal computer inventory.
+
+---
+
+## How the inventory marker works
+
+The discovery script uses a reserved software name prefix:
+
+```text
+GLPI-CERT::
+```
+
+Example:
+
+```text
+GLPI-CERT::*.example.edu
+```
+
+The inventory marker includes machine-readable metadata such as:
+
+```text
+exp=2026-10-29;
+serial=095E499C59B338B0D391A5B483C02BB4;
+fp=5A:F7:D0:D3:DE:44:...;
+path=/etc/ssl/certs/example.crt;
+san=DNS:*.example.edu
+```
+
+The plugin detects these records and converts them into native GLPI `Certificate` objects.
+
+---
+
+## Example
+
+A detected certificate may contain:
+
+```text
+CN: *.example.edu
+Issuer: Example TLS RSA CA
+Serial: 095E499C59B338B0D391A5B483C02BB4
+Valid until: 2026-10-29
+SHA-256: 5A:F7:D0:D3:DE:44:...
+SAN: DNS:*.example.edu
+Path: /etc/ssl/certs/example.crt
+```
+
+The expected GLPI result is:
+
+```text
+Management
+  -> Certificates
+      -> *.example.edu
+          -> Associated items
+              -> web-server-01
+```
+
+---
+
+## Security design
+
+Certificate Inventory is designed to minimize sensitive data exposure.
+
+The client-side discovery process:
+
+- reads Apache and Nginx configuration;
+- identifies referenced certificate files;
+- extracts only public X.509 metadata;
+- uses `openssl x509`;
+- does **not** read private key contents;
+- does **not** copy private key files;
+- does **not** transmit private key material;
+- does **not** require a GLPI App-Token on client servers;
+- does **not** require a GLPI User-Token on client servers;
+- uses GLPI Agent as the transport mechanism.
+
+The discovery process intentionally focuses on certificates actively referenced by supported web servers instead of indiscriminately importing every `.crt`, `.pem`, or CA bundle available on the operating system.
+
+---
+
+## Duplicate handling
+
+Certificate Inventory uses the certificate SHA-256 fingerprint as the primary technical correlation value.
+
+This helps distinguish:
+
+- the same certificate installed on multiple computers;
+- certificate renewals using the same CN;
+- wildcard certificates deployed across multiple servers;
+- certificates with identical names but different serial numbers or validity periods.
+
+A wildcard certificate such as:
+
+```text
+*.example.edu
+```
+
+may therefore be represented as one certificate and associated with several GLPI computers.
+
+---
+
+## Certificate renewals
+
+When a certificate is renewed, values such as these normally change:
+
+```text
+serial number
+SHA-256 fingerprint
+expiration date
+```
+
+while the CN may remain unchanged.
+
+The plugin is designed to use technical certificate metadata rather than CN alone to reduce incorrect correlations.
+
+---
+
+## Troubleshooting
+
+### Verify local discovery
+
+Run:
+
+```bash
+sudo /usr/local/sbin/glpi-cert-inventory.sh
+```
+
+Then check:
+
+```bash
+sudo cat /var/lib/glpi-agent/certificates-inventory.json
+```
+
+### Verify GLPI Agent
+
+Run:
+
+```bash
+sudo glpi-agent --force --debug
+```
+
+### Check GLPI logs
+
+Depending on your installation:
+
+```bash
+tail -f /var/www/glpi/files/_log/php-errors.log
+```
+
+You may also review other GLPI logs under:
+
+```text
+/var/www/glpi/files/_log/
+```
+
+### Confirm the certificate is really used by Apache
+
+```bash
+grep -RniE \
+  'SSLCertificateFile|SSLCertificateKeyFile|SSLCertificateChainFile' \
+  /etc/apache2 2>/dev/null
+```
+
+### Confirm the certificate is really used by Nginx
+
+```bash
+grep -RniE \
+  'ssl_certificate|ssl_certificate_key' \
+  /etc/nginx 2>/dev/null
+```
+
+---
+
+## Development status
+
+Certificate Inventory is currently an **early-stage community project**.
+
+Before production deployment:
+
+1. Test the plugin on a GLPI clone or dedicated test environment.
+2. Confirm compatibility with your exact GLPI version.
+3. Review GLPI PHP and database logs.
+4. Validate entity behavior.
+5. Validate user and profile permissions.
+6. Test certificate creation.
+7. Test computer associations.
+8. Test repeated inventories.
+9. Test certificate renewal behavior.
+10. Perform a security review of the plugin code.
+
+---
+
+## Roadmap
+
+Potential future improvements include:
+
+- GLPI 11 compatibility.
+- Debian support.
+- Red Hat / Rocky Linux / AlmaLinux support.
+- Microsoft IIS certificate discovery.
+- HAProxy support.
+- Reverse proxy discovery.
+- Containerized web server discovery.
+- Certificate chain inventory.
+- Automatic expiration dashboards.
+- Configurable expiration thresholds.
+- Notification integration.
+- Automatic stale-certificate handling.
+- Additional certificate stores.
+- Improved renewal reconciliation.
+- Multi-language plugin interface.
+- Packaging for the GLPI plugin catalog and Marketplace.
+
+---
+
+## Contributing
+
+Contributions are welcome.
+
+You can contribute through:
+
+- bug reports;
+- feature requests;
+- pull requests;
+- compatibility testing;
+- documentation improvements;
+- security reviews.
+
+Clone the project:
+
+```bash
+git clone https://github.com/jopehi/certificateinventory.git
+cd certificateinventory
+```
+
+Create a branch:
+
+```bash
+git checkout -b feature/my-improvement
+```
+
+After making your changes, submit a Pull Request through GitHub.
+
+---
+
+## Issues
+
+Use GitHub Issues for bugs and feature requests:
+
+https://github.com/jopehi/certificateinventory/issues
+
+When reporting an issue, include:
+
+- GLPI version;
+- GLPI Agent version;
+- Linux distribution and version;
+- Apache or Nginx version;
+- relevant GLPI Agent debug output;
+- relevant GLPI log messages.
+
+Do **not** include private keys, passwords, API tokens, session tokens, or other secrets.
+
+---
+
+## Security issues
+
+Please avoid publishing sensitive vulnerability details in a public GitHub issue.
+
+For security-related reports, prefer GitHub's private security reporting / Security Advisories mechanism when enabled for the repository.
+
+Never include:
+
+- private keys;
+- passwords;
+- GLPI tokens;
+- production credentials;
+- confidential certificate material beyond public X.509 metadata.
+
+---
+
+## Project website
+
+A dedicated project presentation page is available at:
+
+https://tics-solutions.xyz/glpi-plugins/certificateinventory/
+
+It includes:
+
+- project overview;
+- architecture;
+- supported platforms;
+- security model;
+- installation workflow;
+- collected certificate information.
+
+---
+
+## Source code
+
+GitHub repository:
+
+https://github.com/jopehi/certificateinventory
+
+---
+
+## License
+
+This repository currently publishes its license in the root `LICENSE` file.
+
+Please refer to:
+
+https://github.com/jopehi/certificateinventory/blob/main/LICENSE
+
+for the authoritative license text applied to the source code.
+
+If the project is intended to use a specific SPDX identifier, keep the following synchronized:
+
+- `LICENSE`
+- `setup.php`
+- `certificateinventory.xml`
+- README badges
+- project website
+- release metadata
+
+---
+
+## Disclaimer
+
+Certificate Inventory is an independent community project.
+
+GLPI is a trademark of its respective owners.
+
+This project is not affiliated with, sponsored by, or officially endorsed by Teclib'.
+
+Use the software at your own risk and validate it in a test environment before deploying it to production.
